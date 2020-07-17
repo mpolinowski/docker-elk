@@ -1,4 +1,4 @@
-> This is a fork of [docker-elk] - please refer to the original repo for updates. This repo was used to build a [React Interface for Elasticsearch 7.8 using ReactiveSearch](https://github.com/mpolinowski/reactive_search).
+> This is a fork of [docker-elk](https://github.com/deviantony/docker-elk) - please refer to the original repo for updates. This repo was used to build a [React Interface for Elasticsearch 7.8 using ReactiveSearch](https://github.com/mpolinowski/reactive_search).
 
 
 
