@@ -1,422 +1,1523 @@
-# Elastic stack (ELK) on Docker
+> This is a fork of [docker-elk] - please refer to the original repo for updates. This repo was used to build a [React Interface for Elasticsearch 7.8 using ReactiveSearch](https://github.com/mpolinowski/reactive_search).
 
-[![Join the chat at https://gitter.im/deviantony/docker-elk](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/deviantony/docker-elk?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-[![Elastic Stack version](https://img.shields.io/badge/ELK-7.8.0-blue.svg?style=flat)](https://github.com/deviantony/docker-elk/issues/515)
-[![Build Status](https://api.travis-ci.org/deviantony/docker-elk.svg?branch=master)](https://travis-ci.org/deviantony/docker-elk)
 
-Run the latest version of the [Elastic stack][elk-stack] with Docker and Docker Compose.
 
-It gives you the ability to analyze any data set by using the searching/aggregation capabilities of Elasticsearch and
-the visualization power of Kibana.
+<!-- TOC -->
 
-> :information_source: The Docker images backing this stack include [Stack Features][stack-features] (formerly X-Pack)
-with [paid features][paid-features] enabled by default (see [How to disable paid
-features](#how-to-disable-paid-features) to disable them). The [trial license][trial-license] is valid for 30 days.
+- [Setup](#setup)
+- [MAPPING](#mapping)
+- [INDEX](#index)
+    - [UPDATE](#update)
+    - [DELETE](#delete)
+    - [BULK](#bulk)
+- [SEARCH](#search)
+    - [Cheat Sheet](#cheat-sheet)
+- [AGGREGATIONS](#aggregations)
 
-Based on the official Docker images from Elastic:
+<!-- /TOC -->
 
-* [Elasticsearch](https://github.com/elastic/elasticsearch/tree/master/distribution/docker)
-* [Logstash](https://github.com/elastic/logstash/tree/master/docker)
-* [Kibana](https://github.com/elastic/kibana/tree/master/src/dev/build/tasks/os_packages/docker_generator)
 
-Other available stack variants:
+# The Elastic Stack
 
-* [`searchguard`](https://github.com/deviantony/docker-elk/tree/searchguard): Search Guard support
+## Setup
 
-## Contents
+1. Download the this [repository](https://github.com/deviantony/docker-elk):
 
-1. [Requirements](#requirements)
-   * [Host setup](#host-setup)
-   * [SELinux](#selinux)
-   * [Docker for Desktop](#docker-for-desktop)
-     * [Windows](#windows)
-     * [macOS](#macos)
-2. [Usage](#usage)
-   * [Version selection](#version-selection)
-   * [Bringing up the stack](#bringing-up-the-stack)
-   * [Cleanup](#cleanup)
-   * [Initial setup](#initial-setup)
-     * [Setting up user authentication](#setting-up-user-authentication)
-     * [Injecting data](#injecting-data)
-     * [Default Kibana index pattern creation](#default-kibana-index-pattern-creation)
-3. [Configuration](#configuration)
-   * [How to configure Elasticsearch](#how-to-configure-elasticsearch)
-   * [How to configure Kibana](#how-to-configure-kibana)
-   * [How to configure Logstash](#how-to-configure-logstash)
-   * [How to disable paid features](#how-to-disable-paid-features)
-   * [How to scale out the Elasticsearch cluster](#how-to-scale-out-the-elasticsearch-cluster)
-4. [Extensibility](#extensibility)
-   * [How to add plugins](#how-to-add-plugins)
-   * [How to enable the provided extensions](#how-to-enable-the-provided-extensions)
-5. [JVM tuning](#jvm-tuning)
-   * [How to specify the amount of memory used by a service](#how-to-specify-the-amount-of-memory-used-by-a-service)
-   * [How to enable a remote JMX connection to a service](#how-to-enable-a-remote-jmx-connection-to-a-service)
-6. [Going further](#going-further)
-   * [Plugins and integrations](#plugins-and-integrations)
-   * [Swarm mode](#swarm-mode)
-
-## Requirements
-
-### Host setup
-
-* [Docker Engine](https://docs.docker.com/install/) version **17.05** or newer
-* [Docker Compose](https://docs.docker.com/compose/install/) version **1.20.0** or newer
-* 1.5 GB of RAM
-
-> :information_source: Especially on Linux, make sure your user has the [required permissions][linux-postinstall] to
-> interact with the Docker daemon.
-
-By default, the stack exposes the following ports:
-* 5000: Logstash TCP input
-* 9200: Elasticsearch HTTP
-* 9300: Elasticsearch TCP transport
-* 5601: Kibana
-
-> :warning: Elasticsearch's [bootstrap checks][booststap-checks] were purposely disabled to facilitate the setup of the
-> Elastic stack in development environments. For production setups, we recommend users to set up their host according to
-> the instructions from the Elasticsearch documentation: [Important System Configuration][es-sys-config].
-
-### SELinux
-
-On distributions which have SELinux enabled out-of-the-box you will need to either re-context the files or set SELinux
-into Permissive mode in order for docker-elk to start properly. For example on Redhat and CentOS, the following will
-apply the proper context:
-
-```console
-$ chcon -R system_u:object_r:admin_home_t:s0 docker-elk/
+```bash
+git clone https://github.com/deviantony/docker-elk.git
 ```
 
-### Docker for Desktop
+2. Disable paid security features:
 
-#### Windows
-
-Ensure the [Shared Drives][win-shareddrives] feature is enabled for the `C:` drive.
-
-#### macOS
-
-The default Docker for Mac configuration allows mounting files from `/Users/`, `/Volumes/`, `/private/`, and `/tmp`
-exclusively. Make sure the repository is cloned in one of those locations or follow the instructions from the
-[documentation][mac-mounts] to add more locations.
-
-## Usage
-
-### Version selection
-
-This repository tries to stay aligned with the latest version of the Elastic stack. The `master` branch tracks the
-current major version (7.x).
-
-To use a different version of the core Elastic components, simply change the version number inside the `.env` file. If
-you are upgrading an existing stack, please carefully read the note in the next section.
-
-> :warning: Always pay attention to the [official upgrade instructions][upgrade] for each individual component before
-performing a stack upgrade.
-
-Older major versions are also supported on separate branches:
-
-* [`release-6.x`](https://github.com/deviantony/docker-elk/tree/release-6.x): 6.x series
-* [`release-5.x`](https://github.com/deviantony/docker-elk/tree/release-5.x): 5.x series (End-Of-Life)
-
-### Bringing up the stack
-
-Clone this repository onto the Docker host that will run the stack, then start services locally using Docker Compose:
-
-```console
-$ docker-compose up
+```bash
+# xpack.license.self_generated.type: trial
+xpack.license.self_generated.type: basic
 ```
 
-You can also run all services in the background (detached mode) by adding the `-d` flag to the above command.
+By changing your XPack license from `trial` to `basic`: `elasticsearch/config/elasticsearch.yml`.
 
-> :warning: You must rebuild the stack images with `docker-compose build` whenever you switch branch or update the
-> version of an already existing stack.
+3. ELK Stack Version
 
-If you are starting the stack for the very first time, please read the section below attentively.
+To use a different version of the core Elastic components, simply change the version number inside the `./.env` file.
 
-### Cleanup
 
-Elasticsearch data is persisted inside a volume by default.
+4. User Login
+
+Open the `./docker-compose.yml` file and take note of the `changeme` password (I changed it to `instar`). The default user name is `elastic`. ([Changing your Login](https://github.com/deviantony/docker-elk#initial-setup))
+
+
+5. Build your stack
+
+```bash
+cd ./docker-elk
+docker-compose build
+```
+
+6. Start Up
+
+```bash
+docker-compose up -d
+```
+
+
+You can now access Elasticsearch on `http://localhost:9200`:
+
+
+![ELK Stack in Docker](./docker-elk_01.png)
+
+
+and Kibana on `http://localhost:5601`:
+
+
+![ELK Stack in Docker](./docker-elk_02.png)
+
+
+7. Shutdown & CleanUp
 
 In order to entirely shutdown the stack and remove all persisted data, use the following Docker Compose command:
 
-```console
-$ docker-compose down -v
+```
+docker-compose down -v
 ```
 
-## Initial setup
 
-### Setting up user authentication
 
-> :information_source: Refer to [How to disable paid features](#how-to-disable-paid-features) to disable authentication.
+## MAPPING
 
-The stack is pre-configured with the following **privileged** bootstrap user:
+Continue by creating a mapping for your Elasticsearch index:
 
-* user: *elastic*
-* password: *changeme*
-
-Although all stack components work out-of-the-box with this user, we strongly recommend using the unprivileged [built-in
-users][builtin-users] instead for increased security.
-
-1. Initialize passwords for built-in users
-
-```console
-$ docker-compose exec -T elasticsearch bin/elasticsearch-setup-passwords auto --batch
+```json
+PUT /wiki_ssr_en_2020_07_06
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "custom_analyzer": {
+          "type": "custom",
+          "char_filter": [
+            "symbol",
+            "html_strip"
+          ],
+          "tokenizer": "punctuation",
+          "filter": [
+            "lowercase",
+            "word_delimiter",
+            "english_stop",
+            "english_stemmer"
+          ]
+        }
+      },
+      "filter": {
+        "english_stop": {
+          "type": "stop",
+          "stopwords": "_english_ "
+        },
+        "english_stemmer": {
+          "type": "stemmer",
+          "language": "english"
+        }
+      },
+      "tokenizer": {
+        "punctuation": {
+          "type": "pattern",
+          "pattern": "[.,!?&=_:;']"
+        }
+      },
+      "char_filter": {
+        "symbol": {
+          "type": "mapping",
+          "mappings": [
+              "& => and",
+              ":) => happy",
+              ":( => unhappy",
+              "+ => plus"
+            ]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "title": {
+        "type": "text",
+        "analyzer": "custom_analyzer",
+        "index": "true"
+      },
+      "series": {
+        "type": "text",
+        "index": "false"
+      },
+      "models": {
+        "type": "text",
+        "index": "false"
+      },
+      "description": {
+        "type": "text",
+        "analyzer": "custom_analyzer",
+        "index": "true"
+      },
+      "link": {
+        "type": "text",
+        "index": "false"
+      },
+      "title2": {
+        "type": "text",
+        "analyzer": "german",
+        "index": "true"
+      },
+      "chapters": {
+        "type": "text",
+        "analyzer": "english",
+        "fields": {
+          "raw": {
+            "type": "keyword"
+          }
+        }
+      },
+      "tags": {
+        "type": "text",
+        "analyzer": "english",
+        "fields": {
+          "raw": {
+            "type": "keyword"
+          }
+        }
+      },
+      "image": {
+        "type": "text",
+        "index": "false"
+      },
+      "imagesquare": {
+        "type": "text",
+        "index": "false"
+      },
+      "abstract": {
+        "type": "text",
+        "analyzer": "custom_analyzer",
+        "index": "true"
+      },
+      "sublink1": {
+        "type": "text",
+        "index": "false"
+      },
+      "sublink2": {
+        "type": "text",
+        "index": "false"
+      },
+      "sublink3": {
+        "type": "text",
+        "index": "false"
+      },
+      "sublink4": {
+        "type": "text",
+        "index": "false"
+      },
+      "subtitle1": {
+        "type": "text",
+        "index": "false"
+      },
+      "subtitle2": {
+        "type": "text",
+        "index": "false"
+      },
+      "subtitle3": {
+        "type": "text",
+        "index": "false"
+      },
+      "subtitle4": {
+        "type": "text",
+        "index": "false"
+      },
+      "badge": {
+        "type": "text",
+        "index": "false"
+      }
+    }
+  }
+}
 ```
 
-Passwords for all 6 built-in users will be randomly generated. Take note of them.
 
-2. Unset the bootstrap password (_optional_)
+Test your custom analyzer - strip HTML + english stopwords + custom characters:
 
-Remove the `ELASTIC_PASSWORD` environment variable from the `elasticsearch` service inside the Compose file
-(`docker-compose.yml`). It is only used to initialize the keystore during the initial startup of Elasticsearch.
-
-3. Replace usernames and passwords in configuration files
-
-Use the `kibana_system` user (`kibana` for releases <7.8.0) inside the Kibana configuration file
-(`kibana/config/kibana.yml`) and the `logstash_system` user inside the Logstash configuration file
-(`logstash/config/logstash.yml`) in place of the existing `elastic` user.
-
-Replace the password for the `elastic` user inside the Logstash pipeline file (`logstash/pipeline/logstash.conf`).
-
-> :information_source: Do not use the `logstash_system` user inside the Logstash *pipeline* file, it does not have
-> sufficient permissions to create indices. Follow the instructions at [Configuring Security in Logstash][ls-security]
-> to create a user with suitable roles.
-
-See also the [Configuration](#configuration) section below.
-
-4. Restart Kibana and Logstash to apply changes
-
-```console
-$ docker-compose restart kibana logstash
+```json
+POST /wiki_ssr_en_2020_07_06/_analyze
+{
+  "analyzer": "custom_analyzer",
+  "text": "<p>This + This is an HTML posting going well, hopefully ? :)</p>. And this is a CGI command: http://admin:instar@192.168.178.88/param.cgi?cmd=setsmtpattr&-ma_ssl=3&-ma_from=cam%40instar.email&-ma_to=me@gmail.com%3B&-ma_subject=Alarm%20Email&-ma_text=ALARM&-ma_server=mx.instar.email&-ma_port=587&-ma_logintype=1&-ma_username=cam%40instar.email&-ma_password=kunde123"
+  
+}
 ```
 
-> :information_source: Learn more about the security of the Elastic stack at [Tutorial: Getting started with
-> security][sec-tutorial].
-
-### Injecting data
-
-Give Kibana about a minute to initialize, then access the Kibana web UI by hitting
-[http://localhost:5601](http://localhost:5601) with a web browser and use the following default credentials to log in:
-
-* user: *elastic*
-* password: *\<your generated elastic password>*
-
-Now that the stack is running, you can go ahead and inject some log entries. The shipped Logstash configuration allows
-you to send content via TCP:
 
 
-```console
-# Using BSD netcat (Debian, Ubuntu, MacOS system, ...)
-$ cat /path/to/logfile.log | nc -q0 localhost 5000
+## INDEX
+
+Add Single Post
+
+```json
+PUT /wiki_ssr_en_2020_07_06/_doc/documentid
+{
+  "title": "How Does An IP Camera Work?",
+  "series": ["HD", "VGA", "Indoor", "Outdoor"],
+  "models": ["IN-2905", "IN-2908", "IN-3011", "IN-4010", "IN-4011", "IN-5905 HD", "IN-5907 HD", "IN-6001 HD", "IN-6012 HD", "IN-6014 HD", "IN-7011 HD"],
+  "description": "How does an IP-Camera-Network work? LAN or Wifi connectivity. Remote access to your camera via DDNS (Dynamic Domain Name Service). Internal IP address vs internet address (DDNS). What is the difference between the internal IP (LAN) and the external IP address (WAN). Internal port / external port - How to open a door to the internet (Port Forwarding)",
+  "link": "/Quick_Installation/How_Does_An_IP_Camera_Work",
+  "title2": "Wie arbeitet eine IP Kamera?",
+  "chapters": "Quick Installation",
+  "tags": ["Introduction", "Quickinstallation"],
+  "image": "/images/Search/QI_SearchThumb_HowDoesAnIPCameraWork.png",
+  "abstract": "How do IP Cameras work in my Network"
+}
 ```
 
-```console
-# Using GNU netcat (CentOS, Fedora, MacOS Homebrew, ...)
-$ cat /path/to/logfile.log | nc -c localhost 5000
+
+
+### UPDATE
+
+Update only one key pair in document with ID yt-intro:
+
+```json
+POST /wiki_ssr_en_2020_07_06/_update/yt-intro
+{
+  "doc": {
+    "image": "/images/Search/InstarWiki_SearchThumb_HowDoesAnIPCameraWork.jpg"
+  }
+}
 ```
 
-You can also load the sample data provided by your Kibana installation.
+Update complete document:
 
-### Default Kibana index pattern creation
-
-When Kibana launches for the first time, it is not configured with any index pattern.
-
-#### Via the Kibana web UI
-
-> :information_source: You need to inject data into Logstash before being able to configure a Logstash index pattern via
-the Kibana web UI.
-
-Navigate to the _Discover_ view of Kibana from the left sidebar. You will be prompted to create an index pattern. Enter
-`logstash-*` to match Logstash indices then, on the next page, select `@timestamp` as the time filter field. Finally,
-click _Create index pattern_ and return to the _Discover_ view to inspect your log entries.
-
-Refer to [Connect Kibana with Elasticsearch][connect-kibana] and [Creating an index pattern][index-pattern] for detailed
-instructions about the index pattern configuration.
-
-#### On the command line
-
-Create an index pattern via the Kibana API:
-
-```console
-$ curl -XPOST -D- 'http://localhost:5601/api/saved_objects/index-pattern' \
-    -H 'Content-Type: application/json' \
-    -H 'kbn-version: 7.8.0' \
-    -u elastic:<your generated elastic password> \
-    -d '{"attributes":{"title":"logstash-*","timeFieldName":"@timestamp"}}'
+```json
+PUT /wiki_ssr_en_2020_07_06/_doc/yt-intro
+{
+  "title": "IP Cameras - An Introduction Video",
+  "...": "..."
+}
 ```
 
-The created pattern will automatically be marked as the default index pattern as soon as the Kibana UI is opened for the first time.
 
-## Configuration
+### DELETE
 
-> :information_source: Configuration is not dynamically reloaded, you will need to restart individual components after
-any configuration change.
+Delete only document with ID yt-intro
 
-### How to configure Elasticsearch
-
-The Elasticsearch configuration is stored in [`elasticsearch/config/elasticsearch.yml`][config-es].
-
-You can also specify the options you want to override by setting environment variables inside the Compose file:
-
-```yml
-elasticsearch:
-
-  environment:
-    network.host: _non_loopback_
-    cluster.name: my-cluster
+```bash
+DELETE /wiki_ssr_en_2020_07_06/_doc/yt-intro 
 ```
 
-Please refer to the following documentation page for more details about how to configure Elasticsearch inside Docker
-containers: [Install Elasticsearch with Docker][es-docker].
 
-### How to configure Kibana
+Delete complete Index
 
-The Kibana default configuration is stored in [`kibana/config/kibana.yml`][config-kbn].
-
-It is also possible to map the entire `config` directory instead of a single file.
-
-Please refer to the following documentation page for more details about how to configure Kibana inside Docker
-containers: [Running Kibana on Docker][kbn-docker].
-
-### How to configure Logstash
-
-The Logstash configuration is stored in [`logstash/config/logstash.yml`][config-ls].
-
-It is also possible to map the entire `config` directory instead of a single file, however you must be aware that
-Logstash will be expecting a [`log4j2.properties`][log4j-props] file for its own logging.
-
-Please refer to the following documentation page for more details about how to configure Logstash inside Docker
-containers: [Configuring Logstash for Docker][ls-docker].
-
-### How to disable paid features
-
-Switch the value of Elasticsearch's `xpack.license.self_generated.type` option from `trial` to `basic` (see [License
-settings][trial-license]).
-
-### How to scale out the Elasticsearch cluster
-
-Follow the instructions from the Wiki: [Scaling out Elasticsearch](https://github.com/deviantony/docker-elk/wiki/Elasticsearch-cluster)
-
-## Extensibility
-
-### How to add plugins
-
-To add plugins to any ELK component you have to:
-
-1. Add a `RUN` statement to the corresponding `Dockerfile` (eg. `RUN logstash-plugin install logstash-filter-json`)
-2. Add the associated plugin code configuration to the service configuration (eg. Logstash input/output)
-3. Rebuild the images using the `docker-compose build` command
-
-### How to enable the provided extensions
-
-A few extensions are available inside the [`extensions`](extensions) directory. These extensions provide features which
-are not part of the standard Elastic stack, but can be used to enrich it with extra integrations.
-
-The documentation for these extensions is provided inside each individual subdirectory, on a per-extension basis. Some
-of them require manual changes to the default ELK configuration.
-
-## JVM tuning
-
-### How to specify the amount of memory used by a service
-
-By default, both Elasticsearch and Logstash start with [1/4 of the total host
-memory](https://docs.oracle.com/javase/8/docs/technotes/guides/vm/gctuning/parallel.html#default_heap_size) allocated to
-the JVM Heap Size.
-
-The startup scripts for Elasticsearch and Logstash can append extra JVM options from the value of an environment
-variable, allowing the user to adjust the amount of memory that can be used by each component:
-
-| Service       | Environment variable |
-|---------------|----------------------|
-| Elasticsearch | ES_JAVA_OPTS         |
-| Logstash      | LS_JAVA_OPTS         |
-
-To accomodate environments where memory is scarce (Docker for Mac has only 2 GB available by default), the Heap Size
-allocation is capped by default to 256MB per service in the `docker-compose.yml` file. If you want to override the
-default JVM configuration, edit the matching environment variable(s) in the `docker-compose.yml` file.
-
-For example, to increase the maximum JVM Heap Size for Logstash:
-
-```yml
-logstash:
-
-  environment:
-    LS_JAVA_OPTS: -Xmx1g -Xms1g
+```bash
+DELETE /wiki_ssr_en_2020_07_06
 ```
 
-### How to enable a remote JMX connection to a service
 
-As for the Java Heap memory (see above), you can specify JVM options to enable JMX and map the JMX port on the Docker
-host.
 
-Update the `{ES,LS}_JAVA_OPTS` environment variable with the following content (I've mapped the JMX service on the port
-18080, you can change that). Do not forget to update the `-Djava.rmi.server.hostname` option with the IP address of your
-Docker host (replace **DOCKER_HOST_IP**):
+### BULK
 
-```yml
-logstash:
+Bulk actions INDEX, UPDATE and DELETE:
 
-  environment:
-    LS_JAVA_OPTS: -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.port=18080 -Dcom.sun.management.jmxremote.rmi.port=18080 -Djava.rmi.server.hostname=DOCKER_HOST_IP -Dcom.sun.management.jmxremote.local.only=false
+```json
+POST _bulk
+{"index": {"_index": "wiki_ssr_en_2020_07_06", "_id": "yt-intro"}}
+{"title": "IP Cameras - An Introduction Video", "description": "How does an IP-Camera work? An IP camera is a complex product, however it is not complicated to operate a INSTAR product. In the following we want to give you an intorduction to the basic functions of an IP camera. For more information about our cameras you can continue reading the FIRST STEPS, where we will dive a little deeper. What is an IP camera and how does it work? The IP in IP-camera stands for Internet Protocol. This implies that the camera is being connected with a network, from which it can be accessed by other devices. The access is not only possible within the same network, but even through the internet. Using our IP cameras works like this: You connect your IP camera via LAN cable or wireless with your router. When your computer or smartphone is connected to the same router, you just type the camera´s IP address into your browsers address bar to access the web user interface (1080P MODELS / 720P MODELS). You can also remotely access your camera through the internet. This is possible via DDNS ADDRESS or via a POINT-TO-POINT connection. When you access your camera, you will enter its Web User Interface 1080P MODELS / 720P MODELS. There you can see the current live video and adjust settings such as alarms, schedules or video configuration. Those settings will be saved on the camera. The camera is opersting 24/7 and will notify you if something moves within the camera´s field of view. How sensitive the camera´s MOTION DETECTION is, and what happens after the alarm was triggered, can be set individually for each camera. Manual or planned recordings following a SCHEDULE are possible as well. This is the basic concept of our cameras. For further information you can check out the FIRST STEPS or you browse our Wiki. Of course you can ask us your unanswered questions PERSONALLY as well.", "sublink1": "/Quick_Installation/How_Does_An_IP_Camera_Work/Video/", "subtitle1": "Video • ", "sublink2": "/Quick_Installation/How_Does_An_IP_Camera_Work/", "subtitle2": "How does an IP Camera Work • ", "sublink3": "/Quick_Installation/", "subtitle3": "Quick Installation", "sublink4": "", "subtitle4": "", "badge": "Video", "title2": "Wie arbeitet eine IP Kamera?", "chapter": "Quick Installation", "tags": ["Introduction", "Quickinstallation"], "image": "/images/Search/QI_SearchThumb_HowDoesAnIPCameraWork.png", "imagesquare": "/images/Search/TOC_Icons/Wiki_Tiles_Youtube_white.png", "short": "How do IP Cameras work in my Network", "abstract": "These videos contain an overview over the basic IP camera features like: LAN or WiFi connectivity and remote access via DDNS and P2P."}
+{"index": {"_index": "wiki_ssr_en_2020_07_06", "_id": "yt-powerline"}}
+{"title": "Powerline - Introduction Video", "description": "Powerline INSTALLATION Network over your Power Grid IN-LAN is an intelligent and secure technology that lets you set up a home network easily via your household power grid - without the need of complex and expensive dedicated cabling. IN-LAN communication now attains speeds you would expect from other LAN technologies. IN-LAN uses the household power grid to transfer data between computers equipped with suitable adapters and other network components. As a result, any power outlet can be used as a network access point. State-of-the-art technology ensures that the power and data networks do not interfere with one another. Powerline vs Power-over-Ethernet Powerline allows you to connect your camera to your local network over the power grid. The camera still needs to be powered by the included power supply. Power-over-Ethernet combines both the network as well as the power supply in a regular Ethernet cable. You only need a POE INJECTOR or POE SWITCH to add the voltage to the Ethernet cable. What is the difference between IN-LAN 500 & IN-LAN 500p? The P in IN-LAN 500p stands for pass-through. Unlike the base model the 500p will block your power outlet but pass through the existing one. Both models offer the same advantages otherwise: Use existing power lines to implement a network with IN-LAN. Very simple plug&play technology. Just plug into the wall socket and you're done. Ultra-fast data transfer up to 500Mbps. Expand your network with for e.g. IP cameras without laying network cables. A very detailed instruction will make the installation very easy. Installation Warnings Powerline communication will fail. if both adaptors (one at your router / the other for your camera) are not connected to the same phase on your powergrid. The Powerline network can suffer quality issues, if the cables, used in your power grid are old. Always directly plug in your IN-LAN adaptors into a wall socket. Don't use extensions cords.", "sublink1": "/Quick_Installation/Powerline/Video/", "subtitle1": "Video • ", "sublink2": "/Quick_Installation/Powerline/", "subtitle2": "Powerline • ", "sublink3": "/Quick_Installation/", "subtitle3": "Quick Installation", "sublink4": "", "subtitle4": "", "badge": "Video", "title2": "Powerline", "chapter": "Quick Installation", "tags": ["Introduction", "Quickinstallation", "Network", "D-LAN", "IN-LAN", "Homeplug AV", "Devolo"], "image": "/images/Search/QI_SearchThumb_Powerline.png", "imagesquare": "/images/Search/TOC_Icons/Wiki_Tiles_Youtube_white.png", "short": "Network Connection over your Power Grid", "abstract": "IN-LAN is an intelligent and secure technology that lets you set up a home network easily via your household power grid - without the need of complex and expensive dedicated cabling."}
+{"update": {"_id": "yt-intro", "_index": "wiki_ssr_en_2020_07_06"}}
+{"doc": {"image": "/images/Search/updatedimage.png"}}
+{"delete": {"_index": "wiki_ssr_en_2020_07_06", "_id": "yt-powerline"}}
 ```
 
-## Going further
 
-### Plugins and integrations
 
-See the following Wiki pages:
+## SEARCH
 
-* [External applications](https://github.com/deviantony/docker-elk/wiki/External-applications)
-* [Popular integrations](https://github.com/deviantony/docker-elk/wiki/Popular-integrations)
+### Cheat Sheet
 
-### Swarm mode
+Return all documents
 
-Experimental support for Docker [Swarm mode][swarm-mode] is provided in the form of a `docker-stack.yml` file, which can
-be deployed in an existing Swarm cluster using the following command:
-
-```console
-$ docker stack deploy -c docker-stack.yml elk
+```bash
+GET /wiki_ssr_en_2020_07_06/_search
 ```
 
-If all components get deployed without any error, the following command will show 3 running services:
 
-```console
-$ docker stack services elk
+Return all documents from all indices starting with wiki_ssr_en
+
+```bash
+GET /wiki_ssr_en*/_search
 ```
 
-> :information_source: To scale Elasticsearch in Swarm mode, configure *zen* to use the DNS name `tasks.elasticsearch`
-instead of `elasticsearch`.
+
+Return all documents from all indices
+
+```bash
+GET /_search
+```
 
 
-[elk-stack]: https://www.elastic.co/elk-stack
-[stack-features]: https://www.elastic.co/products/stack
-[paid-features]: https://www.elastic.co/subscriptions
-[trial-license]: https://www.elastic.co/guide/en/elasticsearch/reference/current/license-settings.html
+Return all documents from index 1&2
 
-[linux-postinstall]: https://docs.docker.com/install/linux/linux-postinstall/
+```bash
+GET /index1,index2/_search
+```
 
-[booststap-checks]: https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
-[es-sys-config]: https://www.elastic.co/guide/en/elasticsearch/reference/current/system-config.html
+This request returned 5 documents with the search query `fritzbox` and the article with the highest match has a score of >5.
 
-[win-shareddrives]: https://docs.docker.com/docker-for-windows/#shared-drives
-[mac-mounts]: https://docs.docker.com/docker-for-mac/osxfs/
+```json
+GET /wiki_ssr_en_2020_07_06/_search?q=fritzbox
 
-[builtin-users]: https://www.elastic.co/guide/en/elasticsearch/reference/current/built-in-users.html
-[ls-security]: https://www.elastic.co/guide/en/logstash/current/ls-security.html
-[sec-tutorial]: https://www.elastic.co/guide/en/elasticsearch/reference/current/security-getting-started.html
 
-[connect-kibana]: https://www.elastic.co/guide/en/kibana/current/connect-to-elasticsearch.html
-[index-pattern]: https://www.elastic.co/guide/en/kibana/current/index-patterns.html
+{
+  "took" : 16,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 5,
+      "relation" : "eq"
+    },
+    "max_score" : 5.1948776
+  }
+}
+```
 
-[config-es]: ./elasticsearch/config/elasticsearch.yml
-[config-kbn]: ./kibana/config/kibana.yml
-[config-ls]: ./logstash/config/logstash.yml
 
-[es-docker]: https://www.elastic.co/guide/en/elasticsearch/reference/current/docker.html
-[kbn-docker]: https://www.elastic.co/guide/en/kibana/current/docker.html
-[ls-docker]: https://www.elastic.co/guide/en/logstash/current/docker-config.html
+Only return documents with search query in it's title
 
-[log4j-props]: https://github.com/elastic/logstash/tree/7.6/docker/data/logstash/config
-[esuser]: https://github.com/elastic/elasticsearch/blob/7.6/distribution/docker/src/docker/Dockerfile#L23-L24
+```bash
+GET /wiki_ssr_en_2020_07_06/_search?q=title:9008
+```
 
-[upgrade]: https://www.elastic.co/guide/en/elasticsearch/reference/current/setup-upgrade.html
 
-[swarm-mode]: https://docs.docker.com/engine/swarm/
+Search query in request body
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "match": {
+      "title": "fritzbox"
+    }
+  }
+}
+```
+
+
+Multiple terms with OR operator
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "match": {
+      "title": "avm fritzbox"
+    }
+  }
+}
+```
+
+
+Multiple terms with AND operator
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "match_phrase": {
+      "title": "avm fritzbox"
+    }
+  }
+}
+```
+
+Search as you type - when you want to display suggestions to the user you can use `match_phrase_prefix` in this case the last word the user typed will be understood as a prefix instead of a whole search query.
+
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match_phrase_prefix": {
+            "title": {
+              "query": "Heater Install"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+You can also use `prefix` to match terms that start with the search query
+
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "prefix": {
+      "title": {
+        "value": "adjust"
+      }
+    }
+  }
+}
+```
+
+
+Multi match more than one field
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "fritzbox",
+      "fields": ["title", "tags"]
+    }
+  }
+}
+```
+
+
+Highlight search query in search results:
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "match": {
+      "title": "Forward"
+    }
+  },
+  "highlight": {
+    "fields": {
+      "title": {}
+    }
+  }
+}
+```
+
+The search result will now contain an extra field below `_source` allowing you to style the em-tags in your search results:
+
+
+```json
+"highlight" : {
+      "title" : [
+        "Port <em>Forwarding</em> Digitalisierungsbox Video"
+      ]
+    }
+```
+
+
+Check if a specific field is present and display all documents that fit:
+
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "exists": {
+      "field": "published"
+    }
+  }
+}
+```
+
+
+
+Bool queries
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "bool": {
+      "must": [{
+        "match": {
+          "title": "fritzbox"
+        }
+      }],
+      "must_not": [{
+        "match": {
+          "title": "forwarding"
+        }
+      }],
+      "should": [{
+        "match": {
+          "tags": "ftp"
+        }
+      }]
+    }
+  }
+}
+```
+
+
+Range filter greater-to-equal or lesser-to-equal
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "bool": {
+      "must": [{
+        "match": {
+          "title": "fritzbox"
+        }
+      }],
+      "filter": {
+        "match": {
+          "range": {
+            "likes": {
+              "gte": 10,
+              "lte": 100
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+
+Limit the amount of returned documents (__Note__: the default value in Elasticsearch is `10`!):
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "match_all": {}
+  },
+  "size": 2
+}
+```
+
+
+To paginate through your search results use `from` to set the start point:
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "match_all": {}
+  },
+  "size": 2,
+  "from": 2
+}
+```
+
+
+Limit the source output to values you are interested in:
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "match_all": {}
+  },
+  "size": 2,
+  "_source": ["title*", "abstract", "*link*"]
+}
+```
+
+Or the other way around - use excludes:
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "match_all": {}
+  },
+  "size": 2,
+  "_source": {
+      "excludes": "*link*"
+  }
+}
+```
+
+Sort your search results (default is by relevancy) - this example fails, see reason below:
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "match_all": {}
+  },
+  "size": 2,
+  "sort": [
+    {
+      "title": {
+        "order": "desc"
+      }
+    }
+  ]
+}
+```
+
+
+> Text fields are not optimised for operations that require per-document field data like aggregations and sorting, so these operations are disabled by default. Please use a keyword field instead. Alternatively, set `fielddata=true` on [title] in order to load field data by uninverting the inverted index. Note that this can use significant memory.
+
+
+Our mapping sets `chapter` and `tags` to be a keyword fields that are not analyzed - we can use them to sort our results:
+
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "match_all": {}
+  },
+  "size": 5,
+  "_source": [
+    "chapter",
+    "tags"
+  ],
+  "sort": [
+    {
+      "chapters.raw": {
+        "order": "desc"
+      }
+    },
+    {
+      "tags.raw": {
+        "order": "desc"
+      }
+    }
+  ]
+}
+```
+
+
+Use the AND operator to get exact results (matched to all keywords you provide - default behaviour is OR):
+
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "match": {
+      "title": "avm fritzbox wireless protected setup"
+    }
+  }
+}
+```
+
+
+
+This query returns 10 results for documents that have either of those search keywords in their title. Let's change this query to the AND operator to get only the documents that has all of those keywords in it's title:
+
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "match": {
+      "title": {
+        "query": "avm fritzbox wireless protected setup",
+        "operator": "and"
+      }
+    }
+  }
+}
+```
+
+This only returns 1 document with the exact title. __Note__: that Elasticsearch uses the same analyzer for your search query that were used for this field in your document. Since `title` uses our custom analyzer all english stop words will be scrubbed - this might lead to different search results. You can also make this query a little bit more fuzzy by defining a number of terms that have to match:
+
+
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "match": {
+      "title": {
+        "query": "avm fritzbox wireless protected setup",
+        "minimum_should_match": 3
+      }
+    }
+  }
+}
+```
+
+
+Or use a relative match:
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "match": {
+      "title": {
+        "query": "avm fritzbox wireless protected setup",
+        "minimum_should_match": "75%"
+      }
+    }
+  }
+}
+```
+
+
+Weighting your search queries to prefer hits in certain fields:
+
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "ASUS",
+      "fields": [
+        "tag^10",
+        "title^9",
+        "abstract^7",
+        "description^5"
+      ]
+    }
+  }
+}
+```
+
+
+Or boost a match clause in your query:
+
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "match": {
+            "title": {
+              "query": "installation",
+              "boost": 3
+            }
+          }
+        },
+        {
+          "match": {
+            "abstract": {
+              "query": "installation"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+
+If you want to provide a boost factor during index time, you can modify your mapping:
+
+
+```json
+PUT /wiki_ssr_en_2020_07_06
+{
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "custom_analyzer": {
+          "type": "custom",
+          "char_filter": [
+            "symbol",
+            "html_strip"
+          ],
+          "tokenizer": "punctuation",
+          "filter": [
+            "lowercase",
+            "word_delimiter",
+            "english_stop",
+            "english_stemmer"
+          ]
+        }
+      },
+      "filter": {
+        "english_stop": {
+          "type": "stop",
+          "stopwords": "_english_ "
+        },
+        "english_stemmer": {
+          "type": "stemmer",
+          "language": "english"
+        }
+      },
+      "tokenizer": {
+        "punctuation": {
+          "type": "pattern",
+          "pattern": "[.,!?&=_:;']"
+        }
+      },
+      "char_filter": {
+        "symbol": {
+          "type": "mapping",
+          "mappings": [
+              "& => and",
+              ":) => happy",
+              ":( => unhappy",
+              "+ => plus"
+            ]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "title": {
+        "type": "text",
+        "analyzer": "custom_analyzer",
+        "index": "true",
+        "boost": 9
+      },
+      "series": {
+        "type": "text",
+        "index": "false"
+      },
+      "models": {
+        "type": "text",
+        "index": "false"
+      },
+      "description": {
+        "type": "text",
+        "analyzer": "custom_analyzer",
+        "index": "true",
+        "boost": 3
+      },
+      "link": {
+        "type": "text",
+        "index": "false"
+      },
+      "title2": {
+        "type": "text",
+        "analyzer": "german",
+        "index": "true"
+      },
+      "chapters": {
+        "type": "text",
+        "analyzer": "english",
+        "fields": {
+          "raw": {
+            "type": "keyword"
+          }
+        }
+      },
+      "tags": {
+        "type": "text",
+        "analyzer": "english",
+        "boost": 10,
+        "fields": {
+          "raw": {
+            "type": "keyword"
+          }
+        }
+      },
+      "image": {
+        "type": "text",
+        "index": "false"
+      },
+      "imagesquare": {
+        "type": "text",
+        "index": "false"
+      },
+      "abstract": {
+        "type": "text",
+        "analyzer": "custom_analyzer",
+        "index": "true",
+        "boost": 7
+      },
+      "sublink1": {
+        "type": "text",
+        "index": "false"
+      },
+      "sublink2": {
+        "type": "text",
+        "index": "false"
+      },
+      "sublink3": {
+        "type": "text",
+        "index": "false"
+      },
+      "sublink4": {
+        "type": "text",
+        "index": "false"
+      },
+      "subtitle1": {
+        "type": "text",
+        "index": "false"
+      },
+      "subtitle2": {
+        "type": "text",
+        "index": "false"
+      },
+      "subtitle3": {
+        "type": "text",
+        "index": "false"
+      },
+      "subtitle4": {
+        "type": "text",
+        "index": "false"
+      },
+      "badge": {
+        "type": "text",
+        "index": "false"
+      }
+    }
+  }
+}
+```
+
+
+Term queries, unlike match queries are not analyzed - the following search will give you all the articles that are tagged with `indoor`:
+
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "term": {
+      "tags": "indoor"
+    }
+  },
+  "_source": ["tags"]
+}
+```
+
+If you type `Indoor` with a capital letter you won get a match since all our documents have been analyzed and run through a to-lower-case transformation. When you use a match query instead your search will be run through the same analyzers and you will get a match:
+
+
+
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "match": {
+      "tags": "Indoor"
+    }
+  },
+  "_source": ["tags"]
+}
+```
+
+
+Term queries can also be used to filter searches:
+
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "title": {
+              "query": "heater installation"
+            }
+          }
+        }
+      ],
+      "filter": {
+        "term": {
+          "tags": "instar"
+        }
+      }
+    }
+  }
+}
+```
+
+
+You can add multiple terms with the `terms` filter:
+
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "title": {
+              "query": "heater installation"
+            }
+          }
+        }
+      ],
+      "filter": {
+        "terms": {
+          "tags": [
+            "instar",
+            "products"
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+
+With multiple filter use the one that eliminates most documents first to improve the performance of the following filters:
+
+
+```json
+GET /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "title": {
+              "query": "camera unboxing"
+            }
+          }
+        }
+      ],
+      "must_not": [
+        {
+          "term": {
+            "value": "draft"
+          }
+        }
+      ],
+      "filter": [
+        {
+          "range": {
+            "likes": {
+              "gte": 100
+            }
+          }
+        },
+        {
+          "range": {
+            "published": {
+              "gte": "2020-03-17"
+            }
+          }
+        }
+      ],
+      "should": [
+        {
+          "match": {
+            "tags": "1080p"
+          }
+        }
+      ],
+      "minimum_should_match": 1
+    }
+  }
+}
+```
+
+## AGGREGATIONS
+
+Only non-analyzed values can be aggregated. To get the top ten tags used in your index, make sure that you provide the tag raw value - see mapping:
+
+
+```json
+"tags": {
+        "type": "text",
+        "index": "true",
+        "fields": {
+          "raw": {
+            "type": "keyword"
+          }
+        }
+      },
+```
+
+You can now query for the top 10 raw tags in your index:
+
+
+```json
+GET  /wiki_ssr_en_2020_07_06/_search
+{
+  "aggs": {
+    "top_tags": {
+      "terms": {
+        "field": "tags.raw",
+        "size": 10
+      }
+    }
+  }
+}
+```
+
+You find the aggregated results at the end of the reply:
+
+
+```json
+"aggregations" : {
+    "top_tags" : {
+      "doc_count_error_upper_bound" : 0,
+      "sum_other_doc_count" : 1894,
+      "buckets" : [
+        {
+          "key" : "Software",
+          "doc_count" : 77
+        },
+        {
+          "key" : "video",
+          "doc_count" : 64
+        },
+        {
+          "key" : "tutorial",
+          "doc_count" : 63
+        },
+        {
+          "key" : "youtube",
+          "doc_count" : 63
+        },
+        {
+          "key" : "MQTT",
+          "doc_count" : 51
+        },
+        {
+          "key" : "indoor",
+          "doc_count" : 44
+        },
+        {
+          "key" : "Home",
+          "doc_count" : 43
+        },
+        {
+          "key" : "InstarVision",
+          "doc_count" : 41
+        },
+        {
+          "key" : "Automation",
+          "doc_count" : 40
+        },
+        {
+          "key" : "INSTAR",
+          "doc_count" : 39
+        }
+      ]
+    }
+  }
+```
+
+To get the top 3 tags within on specific chapter use:
+
+
+```json
+GET  /wiki_ssr_en_2020_07_06/_search
+{
+  "query": {
+    "match": {
+      "chapter": {
+        "query": "motion detection"
+      }
+    }
+  }, 
+  "aggs": {
+    "top_tags": {
+      "terms": {
+        "field": "tags.raw",
+        "size": 3
+      }
+    }
+  }
+}
+```
+
+
+The result is:
+
+
+```json
+"aggregations" : {
+    "top_tags" : {
+      "doc_count_error_upper_bound" : 0,
+      "sum_other_doc_count" : 240,
+      "buckets" : [
+        {
+          "key" : "motion detection",
+          "doc_count" : 31
+        },
+        {
+          "key" : "alarm",
+          "doc_count" : 19
+        },
+        {
+          "key" : "upload",
+          "doc_count" : 17
+        }
+      ]
+    }
+  }
+```
+
+
+Use aggregation with filters - get the top 3 tags of all documents that have more than 100 likes:
+
+
+```json
+GET  /wiki_ssr_en_2020_07_06/_search
+{
+  "size": 0,
+  "query": {
+    "bool": {
+      "filter": {
+        "range": {
+          "likes": {
+            "gte": 100
+          }
+        }
+      }
+    }
+  }, 
+  "aggs": {
+    "top_tags": {
+      "terms": {
+        "field": "tags.raw",
+        "size": 3
+      }
+    }
+  }
+}
+```
+
+
+Get the top 10 tags used on your index and show the average/min/max number of likes documents with this tag receive:
+
+
+```json
+GET  /wiki_ssr_en_2020_07_06/_search
+{
+  "size": 0,
+  "aggs": {
+    "top_tags": {
+      "match": {
+        "field": "tags",
+        "size": 10
+      },
+      "aggs": {
+        "average_likes": {
+          "avg": {
+            "field": "likes"
+          }
+        },
+        "min_likes": {
+          "min": {
+            "field": "likes"
+          }
+        },
+        "max_likes": {
+          "max": {
+            "field": "likes"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+
+You can shorten this query by asking for all stats instead - count, min, max, avg and sum:
+
+
+```json
+GET  /wiki_ssr_en_2020_07_06/_search
+{
+  "size": 0,
+  "aggs": {
+    "top_tags": {
+      "match": {
+        "field": "tags",
+        "size": 10
+      },
+      "aggs": {
+        "likes": {
+          "stats": {
+            "field": "likes"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+
+To get some more statistics, like the standard deviation, variance, etc, run the extended stats query:
+
+
+```json
+GET  /wiki_ssr_en_2020_07_06/_search
+{
+  "size": 0,
+  "aggs": {
+    "top_tags": {
+      "match": {
+        "field": "tags",
+        "size": 10
+      },
+      "aggs": {
+        "likes": {
+          "stats_likes": {
+            "field": "likes"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+
+How many documents are in a group of a given range of likes:
+
+
+```json
+GET  /wiki_ssr_en_2020_07_06/_search
+{
+  "size": 0,
+  "aggs": {
+    "like_range": {
+      "range": {
+        "field": "likes",
+        "ranges": [
+          {
+            "from": 0,
+            "to": 100  
+          },
+          {
+            "from": 100,
+            "to": 200  
+          },
+          {
+            "from": 200
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+
+Or work with date ranges:
+
+
+```json
+GET  /wiki_ssr_en_2020_07_06/_search
+{
+  "size": 0,
+  "aggs": {
+    "daterange": {
+      "date_range": {
+        "field": "published_at",
+        "ranges": [
+          {
+            "from": "now-10d/d",
+            "to": "now"
+          },
+          {
+            "from": "now-10M/M",
+            "to": "now"
+          }
+        ]
+      },
+      "aggs": {
+        "likes": {
+          "stats": {
+            "field": "likes"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+
+```json
+GET  /wiki_ssr_en_2020_07_06/_search
+{
+  "size": 0,
+  "aggs": {
+    "daterange": {
+      "date_range": {
+        "field": "published_at",
+        "ranges": [
+          {
+            "to": "2019-10-31"
+          },
+          {
+            "from": "2020-05-26"
+          }
+        ]
+      },
+      "aggs": {
+        "likes": {
+          "stats": {
+            "field": "likes"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+
+Histogram aggregation - group all documents 0-50, 51-100, 101-150, etc likes:
+
+
+```json
+{
+  "size": 0,
+  "aggs": {
+    "like_diagram": {
+      "histogram": {
+        "field": "likes",
+        "interval": 50
+      }
+    }
+  }
+}
+```
+
+
+Date histogram - show the documents posted per months + the top 10 tags of those documents:
+
+
+```json
+{
+  "size": 0,
+  "aggs": {
+    "date_diagram": {
+      "date_histogram": {
+        "field": "published_at",
+        "interval": "month"
+      },
+      "aggs": {
+        "document_tags": {
+          "terms": {
+            "field": "tags",
+            "size": 10
+          }
+        }
+      }
+    }
+  }
+}
+```
