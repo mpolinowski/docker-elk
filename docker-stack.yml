@@ -11,6 +11,7 @@ services:
       - source: elastic_config
         target: /usr/share/elasticsearch/config/elasticsearch.yml
     environment:
+      transport.host: 0.0.0.0
       ES_JAVA_OPTS: "-Xmx256m -Xms256m"
       # ELASTIC_PASSWORD: changeme
       ELASTIC_PASSWORD: instar

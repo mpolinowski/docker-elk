@@ -72,7 +72,38 @@ and Kibana on `http://localhost:5601`:
 ![ELK Stack in Docker](./docker-elk_02.png)
 
 
-7. Shutdown & CleanUp
+7. Create an Anonymous READ-only Access
+
+Incoming requests are considered to be anonymous if no authentication token can be extracted from the incoming request. By default, anonymous requests are rejected and an authentication error is returned (status code 401).
+
+To enable anonymous access, you assign one or more roles to anonymous users in the `elasticsearch.yml` configuration file. For example, the following configuration assigns anonymous users `wiki_search`:
+
+
+```yaml
+xpack.security.authc:
+  anonymous:
+    username: anonymous_user 
+    roles: wiki_search 
+    authz_exception: true 
+```
+
+	
+When `authz_exception` is set to `true`, a 403 HTTP status code is returned if the anonymous user does not have the permissions needed to perform the requested action and the user will __NOT be prompted__ to provide credentials to access the requested resource. When `false`, a 401 HTTP status code is returned if the anonymous user does not have the necessary permissions and the user is prompted for credentials to access the requested resource. If you are using anonymous access in combination with HTTP, you might need to set `authz_exception` to `false` if your client does not support preemptive basic authentication. Defaults to `true`.
+
+
+The role `wiki_search` can be created in Kibana:
+
+
+![ELK Stack in Docker](./docker-elk_03.png)
+
+
+![ELK Stack in Docker](./docker-elk_04.png)
+
+
+> __Cluster privileges__: `monitor_watcher` All read-only watcher operations, such as getting a watch and watcher stats.
+
+
+8. Shutdown & CleanUp
 
 In order to entirely shutdown the stack and remove all persisted data, use the following Docker Compose command:
 
@@ -87,7 +118,7 @@ docker-compose down -v
 Continue by creating a mapping for your Elasticsearch index:
 
 ```json
-PUT /wiki_ssr_en_2020_07_06
+PUT /wiki_ssr_en_2020_07_19
 {
   "settings": {
     "analysis": {
@@ -241,7 +272,7 @@ PUT /wiki_ssr_en_2020_07_06
 Test your custom analyzer - strip HTML + english stopwords + custom characters:
 
 ```json
-POST /wiki_ssr_en_2020_07_06/_analyze
+POST /wiki_ssr_en_2020_07_19/_analyze
 {
   "analyzer": "custom_analyzer",
   "text": "<p>This + This is an HTML posting going well, hopefully ? :)</p>. And this is a CGI command: http://admin:instar@192.168.178.88/param.cgi?cmd=setsmtpattr&-ma_ssl=3&-ma_from=cam%40instar.email&-ma_to=me@gmail.com%3B&-ma_subject=Alarm%20Email&-ma_text=ALARM&-ma_server=mx.instar.email&-ma_port=587&-ma_logintype=1&-ma_username=cam%40instar.email&-ma_password=kunde123"
@@ -256,7 +287,7 @@ POST /wiki_ssr_en_2020_07_06/_analyze
 Add Single Post
 
 ```json
-PUT /wiki_ssr_en_2020_07_06/_doc/documentid
+PUT /wiki_ssr_en_2020_07_19/_doc/documentid
 {
   "title": "How Does An IP Camera Work?",
   "series": ["HD", "VGA", "Indoor", "Outdoor"],
@@ -278,7 +309,7 @@ PUT /wiki_ssr_en_2020_07_06/_doc/documentid
 Update only one key pair in document with ID yt-intro:
 
 ```json
-POST /wiki_ssr_en_2020_07_06/_update/yt-intro
+POST /wiki_ssr_en_2020_07_19/_update/yt-intro
 {
   "doc": {
     "image": "/images/Search/InstarWiki_SearchThumb_HowDoesAnIPCameraWork.jpg"
@@ -289,7 +320,7 @@ POST /wiki_ssr_en_2020_07_06/_update/yt-intro
 Update complete document:
 
 ```json
-PUT /wiki_ssr_en_2020_07_06/_doc/yt-intro
+PUT /wiki_ssr_en_2020_07_19/_doc/yt-intro
 {
   "title": "IP Cameras - An Introduction Video",
   "...": "..."
@@ -302,14 +333,14 @@ PUT /wiki_ssr_en_2020_07_06/_doc/yt-intro
 Delete only document with ID yt-intro
 
 ```bash
-DELETE /wiki_ssr_en_2020_07_06/_doc/yt-intro 
+DELETE /wiki_ssr_en_2020_07_19/_doc/yt-intro 
 ```
 
 
 Delete complete Index
 
 ```bash
-DELETE /wiki_ssr_en_2020_07_06
+DELETE /wiki_ssr_en_2020_07_19
 ```
 
 
@@ -320,13 +351,13 @@ Bulk actions INDEX, UPDATE and DELETE:
 
 ```json
 POST _bulk
-{"index": {"_index": "wiki_ssr_en_2020_07_06", "_id": "yt-intro"}}
+{"index": {"_index": "wiki_ssr_en_2020_07_19", "_id": "yt-intro"}}
 {"title": "IP Cameras - An Introduction Video", "description": "How does an IP-Camera work? An IP camera is a complex product, however it is not complicated to operate a INSTAR product. In the following we want to give you an intorduction to the basic functions of an IP camera. For more information about our cameras you can continue reading the FIRST STEPS, where we will dive a little deeper. What is an IP camera and how does it work? The IP in IP-camera stands for Internet Protocol. This implies that the camera is being connected with a network, from which it can be accessed by other devices. The access is not only possible within the same network, but even through the internet. Using our IP cameras works like this: You connect your IP camera via LAN cable or wireless with your router. When your computer or smartphone is connected to the same router, you just type the camera´s IP address into your browsers address bar to access the web user interface (1080P MODELS / 720P MODELS). You can also remotely access your camera through the internet. This is possible via DDNS ADDRESS or via a POINT-TO-POINT connection. When you access your camera, you will enter its Web User Interface 1080P MODELS / 720P MODELS. There you can see the current live video and adjust settings such as alarms, schedules or video configuration. Those settings will be saved on the camera. The camera is opersting 24/7 and will notify you if something moves within the camera´s field of view. How sensitive the camera´s MOTION DETECTION is, and what happens after the alarm was triggered, can be set individually for each camera. Manual or planned recordings following a SCHEDULE are possible as well. This is the basic concept of our cameras. For further information you can check out the FIRST STEPS or you browse our Wiki. Of course you can ask us your unanswered questions PERSONALLY as well.", "sublink1": "/Quick_Installation/How_Does_An_IP_Camera_Work/Video/", "subtitle1": "Video • ", "sublink2": "/Quick_Installation/How_Does_An_IP_Camera_Work/", "subtitle2": "How does an IP Camera Work • ", "sublink3": "/Quick_Installation/", "subtitle3": "Quick Installation", "sublink4": "", "subtitle4": "", "badge": "Video", "title2": "Wie arbeitet eine IP Kamera?", "chapter": "Quick Installation", "tags": ["Introduction", "Quickinstallation"], "image": "/images/Search/QI_SearchThumb_HowDoesAnIPCameraWork.png", "imagesquare": "/images/Search/TOC_Icons/Wiki_Tiles_Youtube_white.png", "short": "How do IP Cameras work in my Network", "abstract": "These videos contain an overview over the basic IP camera features like: LAN or WiFi connectivity and remote access via DDNS and P2P."}
-{"index": {"_index": "wiki_ssr_en_2020_07_06", "_id": "yt-powerline"}}
+{"index": {"_index": "wiki_ssr_en_2020_07_19", "_id": "yt-powerline"}}
 {"title": "Powerline - Introduction Video", "description": "Powerline INSTALLATION Network over your Power Grid IN-LAN is an intelligent and secure technology that lets you set up a home network easily via your household power grid - without the need of complex and expensive dedicated cabling. IN-LAN communication now attains speeds you would expect from other LAN technologies. IN-LAN uses the household power grid to transfer data between computers equipped with suitable adapters and other network components. As a result, any power outlet can be used as a network access point. State-of-the-art technology ensures that the power and data networks do not interfere with one another. Powerline vs Power-over-Ethernet Powerline allows you to connect your camera to your local network over the power grid. The camera still needs to be powered by the included power supply. Power-over-Ethernet combines both the network as well as the power supply in a regular Ethernet cable. You only need a POE INJECTOR or POE SWITCH to add the voltage to the Ethernet cable. What is the difference between IN-LAN 500 & IN-LAN 500p? The P in IN-LAN 500p stands for pass-through. Unlike the base model the 500p will block your power outlet but pass through the existing one. Both models offer the same advantages otherwise: Use existing power lines to implement a network with IN-LAN. Very simple plug&play technology. Just plug into the wall socket and you're done. Ultra-fast data transfer up to 500Mbps. Expand your network with for e.g. IP cameras without laying network cables. A very detailed instruction will make the installation very easy. Installation Warnings Powerline communication will fail. if both adaptors (one at your router / the other for your camera) are not connected to the same phase on your powergrid. The Powerline network can suffer quality issues, if the cables, used in your power grid are old. Always directly plug in your IN-LAN adaptors into a wall socket. Don't use extensions cords.", "sublink1": "/Quick_Installation/Powerline/Video/", "subtitle1": "Video • ", "sublink2": "/Quick_Installation/Powerline/", "subtitle2": "Powerline • ", "sublink3": "/Quick_Installation/", "subtitle3": "Quick Installation", "sublink4": "", "subtitle4": "", "badge": "Video", "title2": "Powerline", "chapter": "Quick Installation", "tags": ["Introduction", "Quickinstallation", "Network", "D-LAN", "IN-LAN", "Homeplug AV", "Devolo"], "image": "/images/Search/QI_SearchThumb_Powerline.png", "imagesquare": "/images/Search/TOC_Icons/Wiki_Tiles_Youtube_white.png", "short": "Network Connection over your Power Grid", "abstract": "IN-LAN is an intelligent and secure technology that lets you set up a home network easily via your household power grid - without the need of complex and expensive dedicated cabling."}
-{"update": {"_id": "yt-intro", "_index": "wiki_ssr_en_2020_07_06"}}
+{"update": {"_id": "yt-intro", "_index": "wiki_ssr_en_2020_07_19"}}
 {"doc": {"image": "/images/Search/updatedimage.png"}}
-{"delete": {"_index": "wiki_ssr_en_2020_07_06", "_id": "yt-powerline"}}
+{"delete": {"_index": "wiki_ssr_en_2020_07_19", "_id": "yt-powerline"}}
 ```
 
 
@@ -338,7 +369,7 @@ POST _bulk
 Return all documents
 
 ```bash
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 ```
 
 
@@ -365,7 +396,7 @@ GET /index1,index2/_search
 This request returned 5 documents with the search query `fritzbox` and the article with the highest match has a score of >5.
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search?q=fritzbox
+GET /wiki_ssr_en_2020_07_19/_search?q=fritzbox
 
 
 {
@@ -391,14 +422,14 @@ GET /wiki_ssr_en_2020_07_06/_search?q=fritzbox
 Only return documents with search query in it's title
 
 ```bash
-GET /wiki_ssr_en_2020_07_06/_search?q=title:9008
+GET /wiki_ssr_en_2020_07_19/_search?q=title:9008
 ```
 
 
 Search query in request body
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "match": {
@@ -412,7 +443,7 @@ GET /wiki_ssr_en_2020_07_06/_search
 Multiple terms with OR operator
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "match": {
@@ -426,7 +457,7 @@ GET /wiki_ssr_en_2020_07_06/_search
 Multiple terms with AND operator
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "match_phrase": {
@@ -440,7 +471,7 @@ Search as you type - when you want to display suggestions to the user you can us
 
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "bool": {
@@ -462,7 +493,7 @@ You can also use `prefix` to match terms that start with the search query
 
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "prefix": {
@@ -478,7 +509,7 @@ GET /wiki_ssr_en_2020_07_06/_search
 Multi match more than one field
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "multi_match": {
@@ -493,7 +524,7 @@ GET /wiki_ssr_en_2020_07_06/_search
 Highlight search query in search results:
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "match": {
@@ -524,7 +555,7 @@ Check if a specific field is present and display all documents that fit:
 
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "exists": {
@@ -539,7 +570,7 @@ GET /wiki_ssr_en_2020_07_06/_search
 Bool queries
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "bool": {
@@ -567,7 +598,7 @@ GET /wiki_ssr_en_2020_07_06/_search
 Range filter greater-to-equal or lesser-to-equal
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "bool": {
@@ -595,7 +626,7 @@ GET /wiki_ssr_en_2020_07_06/_search
 Limit the amount of returned documents (__Note__: the default value in Elasticsearch is `10`!):
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "match_all": {}
@@ -608,7 +639,7 @@ GET /wiki_ssr_en_2020_07_06/_search
 To paginate through your search results use `from` to set the start point:
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "match_all": {}
@@ -622,7 +653,7 @@ GET /wiki_ssr_en_2020_07_06/_search
 Limit the source output to values you are interested in:
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "match_all": {}
@@ -635,7 +666,7 @@ GET /wiki_ssr_en_2020_07_06/_search
 Or the other way around - use excludes:
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "match_all": {}
@@ -650,7 +681,7 @@ GET /wiki_ssr_en_2020_07_06/_search
 Sort your search results (default is by relevancy) - this example fails, see reason below:
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "match_all": {}
@@ -674,7 +705,7 @@ Our mapping sets `chapter` and `tags` to be a keyword fields that are not analyz
 
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "match_all": {}
@@ -704,7 +735,7 @@ Use the AND operator to get exact results (matched to all keywords you provide -
 
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "match": {
@@ -720,7 +751,7 @@ This query returns 10 results for documents that have either of those search key
 
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "match": {
@@ -738,7 +769,7 @@ This only returns 1 document with the exact title. __Note__: that Elasticsearch 
 
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "match": {
@@ -755,7 +786,7 @@ GET /wiki_ssr_en_2020_07_06/_search
 Or use a relative match:
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "match": {
@@ -773,7 +804,7 @@ Weighting your search queries to prefer hits in certain fields:
 
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "multi_match": {
@@ -794,7 +825,7 @@ Or boost a match clause in your query:
 
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "bool": {
@@ -825,7 +856,7 @@ If you want to provide a boost factor during index time, you can modify your map
 
 
 ```json
-PUT /wiki_ssr_en_2020_07_06
+PUT /wiki_ssr_en_2020_07_19
 {
   "settings": {
     "analysis": {
@@ -984,7 +1015,7 @@ Term queries, unlike match queries are not analyzed - the following search will 
 
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "term": {
@@ -1001,7 +1032,7 @@ If you type `Indoor` with a capital letter you won get a match since all our doc
 
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "match": {
@@ -1017,7 +1048,7 @@ Term queries can also be used to filter searches:
 
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "bool": {
@@ -1045,7 +1076,7 @@ You can add multiple terms with the `terms` filter:
 
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "bool": {
@@ -1076,7 +1107,7 @@ With multiple filter use the one that eliminates most documents first to improve
 
 
 ```json
-GET /wiki_ssr_en_2020_07_06/_search
+GET /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "bool": {
@@ -1146,7 +1177,7 @@ You can now query for the top 10 raw tags in your index:
 
 
 ```json
-GET  /wiki_ssr_en_2020_07_06/_search
+GET  /wiki_ssr_en_2020_07_19/_search
 {
   "aggs": {
     "top_tags": {
@@ -1217,7 +1248,7 @@ To get the top 3 tags within on specific chapter use:
 
 
 ```json
-GET  /wiki_ssr_en_2020_07_06/_search
+GET  /wiki_ssr_en_2020_07_19/_search
 {
   "query": {
     "match": {
@@ -1269,7 +1300,7 @@ Use aggregation with filters - get the top 3 tags of all documents that have mor
 
 
 ```json
-GET  /wiki_ssr_en_2020_07_06/_search
+GET  /wiki_ssr_en_2020_07_19/_search
 {
   "size": 0,
   "query": {
@@ -1299,7 +1330,7 @@ Get the top 10 tags used on your index and show the average/min/max number of li
 
 
 ```json
-GET  /wiki_ssr_en_2020_07_06/_search
+GET  /wiki_ssr_en_2020_07_19/_search
 {
   "size": 0,
   "aggs": {
@@ -1335,7 +1366,7 @@ You can shorten this query by asking for all stats instead - count, min, max, av
 
 
 ```json
-GET  /wiki_ssr_en_2020_07_06/_search
+GET  /wiki_ssr_en_2020_07_19/_search
 {
   "size": 0,
   "aggs": {
@@ -1361,7 +1392,7 @@ To get some more statistics, like the standard deviation, variance, etc, run the
 
 
 ```json
-GET  /wiki_ssr_en_2020_07_06/_search
+GET  /wiki_ssr_en_2020_07_19/_search
 {
   "size": 0,
   "aggs": {
@@ -1387,7 +1418,7 @@ How many documents are in a group of a given range of likes:
 
 
 ```json
-GET  /wiki_ssr_en_2020_07_06/_search
+GET  /wiki_ssr_en_2020_07_19/_search
 {
   "size": 0,
   "aggs": {
@@ -1418,7 +1449,7 @@ Or work with date ranges:
 
 
 ```json
-GET  /wiki_ssr_en_2020_07_06/_search
+GET  /wiki_ssr_en_2020_07_19/_search
 {
   "size": 0,
   "aggs": {
@@ -1450,7 +1481,7 @@ GET  /wiki_ssr_en_2020_07_06/_search
 
 
 ```json
-GET  /wiki_ssr_en_2020_07_06/_search
+GET  /wiki_ssr_en_2020_07_19/_search
 {
   "size": 0,
   "aggs": {
